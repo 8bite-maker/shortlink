@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ShortLink · 短链服务</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --card: #ffffff;
+      --text: #1f2328;
+      --muted: #656d76;
+      --line: #d8dee4;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --error: #cf222e;
+      --ok-bg: #f0f7ff;
+      --ok-line: #cfe3ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .card {
+      width: 100%;
+      max-width: 540px;
+      padding: 34px 32px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .04);
+    }
+    h1 { margin: 0 0 6px; font-size: 24px; letter-spacing: -.3px; }
+    .sub { margin: 0 0 26px; font-size: 14px; color: var(--muted); }
+    form { display: flex; gap: 8px; }
+    input[type="url"] {
+      flex: 1;
+      min-width: 0;
+      padding: 11px 13px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--text);
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    input[type="url"]:focus { border-color: var(--accent); }
+    button {
+      padding: 11px 18px;
+      font-size: 14px;
+      font-family: inherit;
+      color: #fff;
+      background: var(--accent);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .15s;
+    }
+    button:hover:not(:disabled) { background: var(--accent-hover); }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+
+    .result {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 20px;
+      padding: 14px;
+      background: var(--ok-bg);
+      border: 1px solid var(--ok-line);
+      border-radius: 8px;
+    }
+    .result .label { font-size: 12px; color: var(--muted); }
+    .result a {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--accent);
+      text-decoration: none;
+      word-break: break-all;
+    }
+    .result a:hover { text-decoration: underline; }
+    .result .grow { flex: 1; min-width: 0; }
+    .result button {
+      padding: 7px 12px;
+      font-size: 13px;
+      background: #fff;
+      color: var(--accent);
+      border: 1px solid var(--ok-line);
+    }
+    .result button:hover { background: #e8f1ff; }
+
+    .error {
+      margin: 16px 0 0;
+      font-size: 13px;
+      color: var(--error);
+    }
+    .meta {
+      margin-top: 22px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+    }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>ShortLink</h1>
+    <p class="sub">粘贴长链接，换一个短的。</p>
+
+    <form id="form" autocomplete="off">
+      <input
+        id="url"
+        type="url"
+        placeholder="https://example.com/一段很长的地址..."
+        required
+      />
+      <button id="submit" type="submit">生成短链</button>
+    </form>
+
+    <div id="result" class="result" hidden>
+      <div class="grow">
+        <div class="label">你的短链接</div>
+        <a id="short-link" href="#" target="_blank" rel="noopener"></a>
+      </div>
+      <button id="copy" type="button">复制</button>
+    </div>
+
+    <p id="error" class="error" hidden></p>
+
+    <div class="meta">
+      <span>v1 · 内存存储</span>
+      <span id="count">—</span>
+    </div>
+  </main>
+
+  <script>
+    const form = document.getElementById('form');
+    const input = document.getElementById('url');
+    const submitBtn = document.getElementById('submit');
+    const resultBox = document.getElementById('result');
+    const shortLink = document.getElementById('short-link');
+    const copyBtn = document.getElementById('copy');
+    const errorBox = document.getElementById('error');
+    const countEl = document.getElementById('count');
+
+    function showError(msg) {
+      errorBox.textContent = msg;
+      errorBox.hidden = false;
+    }
+
+    function clearError() {
+      errorBox.hidden = true;
+    }
+
+    async function refreshCount() {
+      try {
+        const res = await fetch('/health');
+        const data = await res.json();
+        countEl.textContent = '已生成 ' + data.total_links + ' 条';
+      } catch (_) {
+        countEl.textContent = '—';
+      }
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      clearError();
+      resultBox.hidden = true;
+      submitBtn.disabled = true;
+      submitBtn.textContent = '生成中...';
+
+      try {
+        const res = await fetch('/api/links', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: input.value })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          // FastAPI 的错误格式是 {"detail": "..."}；校验失败时 detail 是数组
+          const detail = data.detail;
+          showError(typeof detail === 'string' ? detail : '链接格式不正确，请检查');
+          return;
+        }
+
+        const full = new URL(data.short_url, window.location.origin).href;
+        shortLink.href = full;
+        shortLink.textContent = full;
+        resultBox.hidden = false;
+        refreshCount();
+      } catch (err) {
+        showError('请求失败：' + err.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '生成短链';
+      }
+    });
+
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(shortLink.href);
+        copyBtn.textContent = '已复制';
+        setTimeout(() => { copyBtn.textContent = '复制'; }, 1500);
+      } catch (_) {
+        showError('复制失败，请手动选中链接复制');
+      }
+    });
+
+    refreshCount();
+  </script>
+</body>
+</html>

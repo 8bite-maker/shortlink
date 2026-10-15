@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 虚拟环境（每个人本地建，不进仓库）
+.venv/
+venv/
+env/
+
+# 环境变量与密钥（绝对不能提交）
+.env
+.env.local
+
+# 测试缓存
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 编辑器
+.idea/
+.vscode/
+*.swp
+
+# 数据库文件（v2 起会用到）
+*.sqlite3
+*.db
