@@ -1,0 +1,39 @@
+# docker compose 让你用一个文件描述"整个系统由哪些容器组成"，
+# 然后一条 `docker compose up` 全部启动。
+#
+# 为什么需要它：我们的服务现在有两个部分 —— Web 应用 + Redis。
+# 手动一个个 docker run 很繁琐，还要记住启动顺序和网络配置。
+
+services:
+  # ---------------- Web 应用 ----------------
+  web:
+    build: .                    # 用当前目录的 Dockerfile 构建镜像
+    container_name: shortlink-web
+    ports:
+      - "8000:8000"             # 格式是「宿主机端口:容器端口」
+    environment:
+      # 主机名直接写服务名 redis —— compose 内置的 DNS 会把它解析到那个容器。
+      # 不用写 IP、不用记端口，这也是容器编排最方便的地方。
+      - REDIS_URL=redis://redis:6379/0
+      # 数据库指向挂载出来的持久化目录
+      - DB_PATH=/app/data/shortlink.db
+    volumes:
+      # 把容器里的 /app/data 映射到宿主机的 ./data
+      # 作用：容器删了重建，数据库文件还留在你硬盘上
+      - ./data:/app/data
+    depends_on:
+      - redis
+    restart: unless-stopped     # 意外挂掉自动重启
+
+  # ---------------- Redis ----------------
+  redis:
+    image: redis:7-alpine       # 官方现成镜像，直接用，不用自己构建
+    container_name: shortlink-redis
+    volumes:
+      - redis-data:/data        # 命名卷，由 Docker 统一管理
+    # 故意不写 ports：Redis 只在内部网络可见，不暴露到宿主机，
+    # 减少被外部扫描攻击的风险。web 容器通过服务名照样能连上。
+    restart: unless-stopped
+
+volumes:
+  redis-data:

@@ -1,0 +1,31 @@
+# 构建镜像时要忽略的文件/目录。
+# 作用：镜像更小、构建更快，也避免把本地环境和隐私文件打进去。
+
+# Python 缓存与虚拟环境（容器里会重新装依赖，不需要本地的 .venv）
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 版本控制与编辑器
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# 本地的数据文件（容器里用挂载卷，不打包进去）
+shortlink.db
+*.db
+*.sqlite3
+data/
+
+# 测试与文档
+.pytest_cache/
+.coverage
+htmlcov/
+README.md
+
+# Docker 自身文件不需要进镜像
+Dockerfile
+docker-compose.yml
+.dockerignore

@@ -48,6 +48,44 @@ export REDIS_URL="redis://127.0.0.1:6379/0"
 $env:REDIS_URL = "redis://127.0.0.1:6379/0"
 ```
 
+## Docker 部署（推荐）
+
+不用装 Python、不用配环境，一条命令全起来：
+
+```bash
+# 构建镜像并启动 web + redis 两个容器
+docker compose up -d --build
+
+# 查看运行状态
+docker compose ps
+
+# 实时看应用日志
+docker compose logs -f web
+
+# 停止并移除容器（数据仍保留）
+docker compose down
+```
+
+启动后访问 <http://127.0.0.1:8000>。
+
+**它做了什么：**
+
+| 组件 | 说明 |
+| --- | --- |
+| `web` 容器 | 把你的代码 + Python 3.13 + 依赖一起打包运行 |
+| `redis` 容器 | 官方 Redis 7 镜像，只在内部网络可见，不暴露到宿主机 |
+| `./data` 目录 | 数据库文件挂载到宿主机，**删掉容器数据也不丢** |
+| `redis-data` 卷 | Redis 数据的命名卷，由 Docker 统一管理 |
+
+**连数据一起彻底清理：**
+
+```bash
+docker compose down -v && rm -rf ./data
+```
+
+**为什么 Dockerfile 里必须写 `--host 0.0.0.0`：**
+写 `127.0.0.1` 表示只接受容器内部的连接，宿主机永远连不上。这是新手最常踩的坑。
+
 ## 接口
 
 | 方法 | 路径 | 说明 |
@@ -76,12 +114,16 @@ curl http://127.0.0.1:8000/api/links/xxxxxx
 ```
 shortlink/
 ├── app/
-│   ├── main.py       # 路由与接口逻辑
-│   ├── db.py         # 数据库连接与会话管理
-│   ├── models.py     # 数据表结构（ORM 模型）
-│   └── cache.py      # 缓存、点击缓冲、限流
-├── static/index.html # 前端页面（原生 HTML + JS）
-├── shortlink.db      # SQLite 数据库（自动生成，已在 .gitignore 中忽略）
+│   ├── main.py         # 路由与接口逻辑
+│   ├── db.py           # 数据库连接与会话管理
+│   ├── models.py       # 数据表结构（ORM 模型）
+│   └── cache.py        # 缓存、点击缓冲、限流
+├── static/index.html   # 前端页面（原生 HTML + JS）
+├── Dockerfile          # 镜像构建说明
+├── docker-compose.yml  # 一键启动 web + redis
+├── .dockerignore       # 构建镜像时忽略的文件
+├── data/               # 挂载出来的数据目录（自动生成，已忽略）
+├── shortlink.db        # SQLite 数据库（自动生成，已忽略）
 ├── requirements.txt
 └── README.md
 ```
@@ -111,12 +153,14 @@ shortlink/
 - [x] **v1** — 核心功能，内存字典存储
 - [x] **v2** — SQLite 持久化 + 点击统计
 - [x] **v3** — Redis 缓存 + 点击缓冲 + 接口限流
-- [ ] **v4** — Docker 部署上线，拿到公网地址
-- [ ] **v5** — 布隆过滤器解决缓存穿透 + 高并发优化
+- [x] **v4** — Docker 容器化，`docker compose up` 一键启动
+- [ ] **v5** — 部署到公网，拿到可分享的地址
+- [ ] **v6** — 布隆过滤器解决缓存穿透 + 高并发优化
 
 ## 已知限制
 
-- 本地默认走 `fakeredis`，它活在应用进程内，**应用重启缓冲的点击量会丢**；接入真 Redis 后可解决
+- 本地默认走 `fakeredis`，它活在应用进程内，**应用重启缓冲的点击量会丢**；Docker 部署后接的是真 Redis，没这个问题
 - 限流按 IP 计数，同一 NAT 后的多个用户会共享额度
 - 缓存的链接在 TTL 内不会被主动失效（暂不支持改指向）
 - 单机 SQLite，不支持多实例部署
+- Dockerfile 为便于理解采用单阶段构建，生产环境可用多阶段构建进一步缩小镜像

@@ -6,14 +6,21 @@ SQLite 是什么：一个文件就是一个完整的数据库，零安装、零�
 适合起步阶段。等以后并发量上来，再换成 PostgreSQL，代码几乎不用改。
 """
 
+import os
 from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-# 数据库文件放在项目根目录
+# 项目根目录
 BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = BASE_DIR / "shortlink.db"
+
+# 数据库文件路径。默认放在项目根目录，可用环境变量 DB_PATH 覆盖 ——
+# 容器部署时会指向挂载出来的持久化目录，这样删掉容器数据也不会丢
+DB_PATH = Path(os.getenv("DB_PATH", str(BASE_DIR / "shortlink.db")))
+
+# 确保所在目录存在（容器里挂载的目录可能是新建的空目录）
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 # SQLite 的连接串格式：sqlite:///<文件绝对路径>
 DATABASE_URL = f"sqlite:///{DB_PATH}"

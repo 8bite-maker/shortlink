@@ -25,3 +25,6 @@ htmlcov/
 # 数据库文件（v2 起会用到）
 *.sqlite3
 *.db
+
+# Docker 挂载出来的数据目录
+data/
