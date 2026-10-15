@@ -113,6 +113,57 @@
       display: flex;
       justify-content: space-between;
     }
+    .recent {
+      margin-top: 22px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+    }
+    .recent h2 {
+      margin: 0 0 10px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+    }
+    .recent ul { margin: 0; padding: 0; list-style: none; }
+    .recent li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 0;
+      border-bottom: 1px solid #eef0f2;
+      font-size: 13px;
+    }
+    .recent li:last-child { border-bottom: none; }
+    .recent .code {
+      flex-shrink: 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-weight: 600;
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .recent .code:hover { text-decoration: underline; }
+    .recent .target {
+      flex: 1;
+      min-width: 0;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .recent .clicks {
+      flex-shrink: 0;
+      padding: 2px 9px;
+      font-size: 12px;
+      color: var(--text);
+      background: #f1f3f5;
+      border-radius: 999px;
+      font-variant-numeric: tabular-nums;
+    }
+    .recent .empty {
+      padding: 6px 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -141,8 +192,13 @@
 
     <p id="error" class="error" hidden></p>
 
+    <div class="recent">
+      <h2>最近的短链</h2>
+      <div id="recent-list" class="empty">加载中…</div>
+    </div>
+
     <div class="meta">
-      <span>v1 · 内存存储</span>
+      <span>v2 · SQLite 持久化</span>
       <span id="count">—</span>
     </div>
   </main>
@@ -176,6 +232,52 @@
       }
     }
 
+    async function refreshRecent() {
+      const box = document.getElementById('recent-list');
+      try {
+        const res = await fetch('/api/links?limit=8');
+        const items = await res.json();
+
+        if (!items.length) {
+          box.className = 'empty';
+          box.textContent = '还没有短链，生成一个试试。';
+          return;
+        }
+
+        const ul = document.createElement('ul');
+        items.forEach((item) => {
+          const li = document.createElement('li');
+
+          const codeLink = document.createElement('a');
+          codeLink.className = 'code';
+          codeLink.href = item.short_url;
+          codeLink.target = '_blank';
+          codeLink.rel = 'noopener';
+          codeLink.textContent = item.code;
+
+          const target = document.createElement('span');
+          target.className = 'target';
+          // 用 textContent 而不是 innerHTML：用户输入的链接里可能带 <script>，
+          // 用 innerHTML 会直接执行，这就是 XSS 漏洞
+          target.textContent = item.target;
+          target.title = item.target;
+
+          const clicks = document.createElement('span');
+          clicks.className = 'clicks';
+          clicks.textContent = item.clicks + ' 次';
+
+          li.append(codeLink, target, clicks);
+          ul.appendChild(li);
+        });
+
+        box.className = '';
+        box.replaceChildren(ul);
+      } catch (_) {
+        box.className = 'empty';
+        box.textContent = '统计加载失败';
+      }
+    }
+
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       clearError();
@@ -203,6 +305,7 @@
         shortLink.textContent = full;
         resultBox.hidden = false;
         refreshCount();
+        refreshRecent();
       } catch (err) {
         showError('请求失败：' + err.message);
       } finally {
@@ -222,6 +325,7 @@
     });
 
     refreshCount();
+    refreshRecent();
   </script>
 </body>
 </html>
