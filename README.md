@@ -15,6 +15,20 @@
 
 ## 快速开始
 
+### Windows：一键启动（最省事）
+
+装好依赖后，直接**双击项目根目录的 `start.bat`**，会弹出一个命令行窗口并自动启动服务。
+关闭那个窗口 = 停止服务。
+
+首次使用需要先建好虚拟环境并装依赖（只做一次）：
+
+```bash
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+### 手动启动
+
 ```bash
 # 1. 创建虚拟环境（只做一次）
 python -m venv .venv
